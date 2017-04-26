@@ -3,6 +3,9 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include<pthread.h>
+#include<string.h>
+#include<windows.h>
 #include"TTSClientSDK.h"
 
 //Note: The way to get api key :
@@ -10,7 +13,7 @@
 //Paid : https://portal.azure.com/#create/Microsoft.CognitiveServices/apitype/Bing.Speech/pricingtier/S0
 const unsigned char* ApiKey = "Your api key";
 
-const char* text = "This is the Microsoft TTS Client SDK test program";
+const char* text = "This is the Microsoft TTS Client SDK test program. It tested multithreaded operations. It will generate two wav files, one is complete, one is stopped";
 
 typedef struct _wave_pcm_hdr
 {
@@ -49,7 +52,7 @@ wave_pcm_hdr default_wav_hdr =
 int pfWriteBack(void* pCallBackStat, const char* pWaveSamples, int32_t nBytes)
 {
 	FILE *fp;
-	fp = fopen("./TTSSample.pcm", "ab");
+	fp = fopen((char*)pCallBackStat, "ab");
 	fwrite(pWaveSamples, sizeof(char), nBytes, fp);
 	fclose(fp);
 	return 0;
@@ -86,9 +89,7 @@ int addWaveHeader(char* targetFile, char* soourceFile, const MSTTSWAVEFORMATEX* 
 	return 0;
 }
 
-int main()
-{
-
+int runSpeechSynthesizer(MSTTSHANDLE* handle, char* fileName) {
 	MSTTS_RESULT result;
 	MSTTSHANDLE MSTTShandle;
 	const MSTTSWAVEFORMATEX* waveFormat = NULL;
@@ -100,10 +101,9 @@ int main()
 		return 0;
 	}
 
-	//waveFormat is not being set.
-	//Now only supports raw-16khz-16bit-mono format.
-	//This parameter is only for expansion
-	result = MSTTS_SetOutput(MSTTShandle, waveFormat, pfWriteBack, NULL);
+	*handle = MSTTShandle;
+
+	result = MSTTS_SetOutput(MSTTShandle, waveFormat, pfWriteBack, fileName);
 	if (result != MSTTS_OK)
 	{
 		printf("set output callback error\r\n");
@@ -126,13 +126,18 @@ int main()
 	}
 
 	result = MSTTS_Speak(MSTTShandle, text, MSTTSContentType_PlainText);
-	if (result != MSTTS_OK)
+	//If result == MSTTS_HTTP_PERFORM_BREAK
+	//Means that HTTP reception stops
+	if (result == MSTTS_HTTP_PERFORM_BREAK) {
+		printf("speak stoped\r\n");
+	}
+
+	if (result != MSTTS_OK && result != MSTTS_HTTP_PERFORM_BREAK)
 	{
 		printf("speak error\r\n");
 		return 0;
 	}
 
-	//You can use this function to get the complete wav header information
 	waveFormat = MSTTS_GetOutputFormat(MSTTShandle);
 	if (waveFormat == NULL)
 	{
@@ -140,13 +145,52 @@ int main()
 		return 0;
 	}
 
-	if (!addWaveHeader("./TTSSample.wav", "./TTSSample.pcm", waveFormat))
+	char* targetFileName = (char*)malloc(strlen(fileName) + 1 + 4);
+	memset(targetFileName, 0, strlen(fileName) + 1 + 4);
+	strcat(targetFileName, fileName);
+	strcat(targetFileName, ".wav");
+
+	if (!addWaveHeader(targetFileName, fileName, waveFormat))
 	{
 		printf("Generate wav file success\r\n");
 	}
 
+	free(targetFileName);
+
 	MSTTS_CloseSynthesizer(MSTTShandle);
 
 	return 0;
+}
 
+
+void* tprocess1(void* args) {
+	
+	runSpeechSynthesizer(args, "./tprocess1.pcm");
+	return NULL;
+}
+
+void* tprocess2(void* args) {
+	
+	runSpeechSynthesizer(args, "./tprocess2.pcm");
+	return NULL;
+}
+
+
+int main() {
+	pthread_t t1;
+	pthread_t t2;
+	MSTTSHANDLE MSTTShandle_p1 = NULL;
+	MSTTSHANDLE MSTTShandle_p2 = NULL;
+
+	pthread_create(&t1, NULL, tprocess1, &MSTTShandle_p1);
+	Sleep(500);
+	pthread_create(&t2, NULL, tprocess2, &MSTTShandle_p2);
+	Sleep(1200);
+
+	//will stop SpeechSynthesizer in tprocess2
+	MSTTS_Stop(MSTTShandle_p2);
+	pthread_join(t1, NULL);
+	pthread_join(t2, NULL);
+	getch();
+	return 0;
 }
