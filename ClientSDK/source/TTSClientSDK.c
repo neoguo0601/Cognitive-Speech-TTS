@@ -28,8 +28,10 @@ typedef enum MSTTSSpeakStatusType
 
 typedef struct MSTTSOUTPUT_TAG
 {
-	LPMSTTS_RECEIVE_WAVESAMPLES_ROUTINE pfWriteBack;  //Call back to output the wave samples, and return <0 for error code and abort speaking.
-	void* pCallBackStat;                              //The call back stat for the call back.
+	//Call back to output the wave samples, and return <0 for error code and abort speaking.
+	LPMSTTS_RECEIVE_WAVESAMPLES_ROUTINE pfWriteBack;  
+	//The call back stat for the call back.
+	void* pCallBackStat;                              
 }MSTTS_OUTPUT;
 
 typedef struct MSTTSHANDLE_TAG
@@ -58,7 +60,12 @@ typedef struct HTTPRESPONSECONTENTHANDLE_TAG
 //
 //Silk decode source
 //
-static int silk_decode_frame(void* hDecoder, const SKP_uint8* inData, SKP_int nBytesIn, SKP_int16* outData, size_t* nBytesOut)
+static int silk_decode_frame(
+	void* hDecoder, 
+	const SKP_uint8* inData, 
+	SKP_int nBytesIn, 
+	SKP_int16* outData, 
+	size_t* nBytesOut)
 {
 	SKP_int16 len;
 	int       tot_len = 0;
@@ -211,7 +218,8 @@ static size_t HandleWaveSamples(void *ptr, size_t size, size_t nmemb, void *resp
 			memset(waveOutput, 0, TEMP_WAVE_DATA_LENGTH);
 
 			uint16_t len = *(uint16_t*)(response->buffer + response->offset);
-			while (response->offset + len + sizeof(uint16_t) <= response->bufferSize && TEMP_WAVE_DATA_LENGTH - decodedBytes > SILK_MAXBYTESPERBLOCK)
+			while (response->offset + len + sizeof(uint16_t) <= response->bufferSize 
+				&& TEMP_WAVE_DATA_LENGTH - decodedBytes > SILK_MAXBYTESPERBLOCK)
 			{
 				nBytes = TEMP_WAVE_DATA_LENGTH - decodedBytes;
 				if (silk_decode_frame(
@@ -237,7 +245,10 @@ static size_t HandleWaveSamples(void *ptr, size_t size, size_t nmemb, void *resp
 			//callback WriteBack
 			if (response->outputCallback->pfWriteBack)
 			{
-				if (response->outputCallback->pfWriteBack(response->outputCallback->pCallBackStat, waveOutput, decodedBytes) != 0)
+				if (response->outputCallback->pfWriteBack(
+					response->outputCallback->pCallBackStat, 
+					waveOutput, 
+					decodedBytes) != 0)
 				{
 					free(waveOutput);
 					return 0;
@@ -357,7 +368,8 @@ MSTTS_RESULT GetToken(const unsigned char* ApiKey, unsigned char** KeyValue)
 		{
 			result = MSTTS_HTTP_PERFORM_BREAK;
 		}
-		else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) || httpStatusCode != 200)
+		else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) 
+			|| httpStatusCode != 200)
 		{
 			result = MSTTS_HTTP_GETINFO_ERROR;
 		}
@@ -418,9 +430,14 @@ MSTTS_RESULT CheckToken(MSTTSHANDLE hSynthesizerHandle)
 * Return value:
 *  MSTTS_RESULT
 */
-MSTTS_RESULT GetSSML(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enum MSTTSContentType eContentType, unsigned char** body)
+MSTTS_RESULT GetSSML(
+	MSTTSHANDLE hSynthesizerHandle, 
+	const char* pszContent, 
+	enum MSTTSContentType eContentType, 
+	unsigned char** body)
 {
 	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	const unsigned char* SSMLFormat = "<speak version='1.0' xml:lang='%s'><voice xml:lang='%s' name='%s'>%s</voice></speak>";
 	MSTTS_RESULT result = MSTTS_OK;
 
 	if (SynthesizerHandle == NULL || pszContent == NULL || body == NULL)
@@ -445,7 +462,6 @@ MSTTS_RESULT GetSSML(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enu
 	}
 	else
 	{
-		const unsigned char* SSMLFormat = "<speak version='1.0' xml:lang='%s'><voice xml:lang='%s' name='%s'>%s</voice></speak>";
 		size_t len = strlen(SSMLFormat) +
 			strlen(SynthesizerHandle->VoiceInfo->lang) +
 			strlen(SynthesizerHandle->VoiceInfo->lang) +
@@ -812,7 +828,8 @@ MSTTS_RESULT MSTTS_Speak(MSTTSHANDLE hSynthesizerHandle, const char* pszContent,
 		{
 			result = MSTTS_HTTP_PERFORM_BREAK;
 		}
-		else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) || httpStatusCode != 200)
+		else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) 
+			|| httpStatusCode != 200)
 		{
 			result = MSTTS_HTTP_GETINFO_ERROR;
 		}
@@ -922,7 +939,11 @@ MSTTS_RESULT MSTTS_SetVoice(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo
 * Return value:
 *  MSTTS_RESULT
 */
-MSTTS_RESULT MSTTS_SetOutput(MSTTSHANDLE hSynthesizerHandle, const MSTTSWAVEFORMATEX* pWaveFormat, LPMSTTS_RECEIVE_WAVESAMPLES_ROUTINE pfWriteBack, void* pCallBackStat)
+MSTTS_RESULT MSTTS_SetOutput(
+	MSTTSHANDLE hSynthesizerHandle, 
+	const MSTTSWAVEFORMATEX* pWaveFormat, 
+	LPMSTTS_RECEIVE_WAVESAMPLES_ROUTINE pfWriteBack, 
+	void* pCallBackStat)
 {
 	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 	MSTTS_OUTPUT* outputCallback = NULL;
