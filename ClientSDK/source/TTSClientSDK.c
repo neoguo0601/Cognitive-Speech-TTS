@@ -264,106 +264,108 @@ static size_t HandleWaveSamples(void *ptr, size_t size, size_t nmemb, void *resp
 */
 MSTTS_RESULT GetToken(const unsigned char* ApiKey, unsigned char** KeyValue)
 {
+	//Request the URL of the token
+	const char* URL = "https://api.cognitive.microsoft.com/sts/v1.0/issueToken";
+	const char* ApiKeyHeaderName = "Ocp-Apim-Subscription-Key:";
+	
+	unsigned char* apiKeyHeader = NULL;
+	struct curl_slist *headers = NULL;
+	CURL *curl = NULL;
+	long httpStatusCode = 0;
+	MSTTS_RESULT result = MSTTS_OK;
+
 	if (ApiKey == NULL || KeyValue == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
 
-	//Request the URL of the token
-	const char* URL = "https://api.cognitive.microsoft.com/sts/v1.0/issueToken";
-	const char* ApiKeyHeaderName = "Ocp-Apim-Subscription-Key";
-
-	MSTTS_RESULT result = MSTTS_OK;
-	long httpStatusCode;
-
-	if (curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK)
+	//set api key header
+	apiKeyHeader = malloc(strlen(ApiKeyHeaderName) + strlen(ApiKey) + 1);
+	if (!apiKeyHeader)
 	{
-		CURL *curl = curl_easy_init();
-		if (curl)
-		{
-			unsigned char* apiKeyHeader = malloc(strlen(ApiKeyHeaderName) + 1 + strlen(ApiKey) + 1);
-			if (apiKeyHeader)
-			{
-				memset(apiKeyHeader, 0, strlen(ApiKeyHeaderName) + 1 + strlen(ApiKey) + 1);
-				strcat(apiKeyHeader, ApiKeyHeaderName);
-				strcat(apiKeyHeader, ":");
-				strcat(apiKeyHeader, ApiKey);
-				struct curl_slist *headers = NULL;
-				headers = curl_slist_append(headers, apiKeyHeader);
-				headers = curl_slist_append(headers, "Content-Length:0");
-				if (headers)
-				{
-					if (curl_easy_setopt(curl, CURLOPT_WRITEDATA, KeyValue) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-					else if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HandleTokenData) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-					else if (curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-					else if (curl_easy_setopt(curl, CURLOPT_URL, URL) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-					else if (curl_easy_setopt(curl, CURLOPT_POST, 1) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-					else if (curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-#ifdef CURL_VERBOSE
-					else if (curl_easy_setopt(curl, CURLOPT_VERBOSE, 1) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-#endif // CURL_VERBOSE
-#ifdef NO_SSL_VERIFYPEER
-					else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-					else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_SETOPT_ERROR;
-					}
-#endif
-					else if (curl_easy_perform(curl) != CURLE_OK)
-					{
-						result = MSTTS_HTTP_PERFORM_ERROR;
-					}
-					else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) || httpStatusCode != 200)
-					{
-						result = MSTTS_HTTP_GETINFO_ERROR;
-					}
-				}
-				else
-				{
-					result = MSTTS_GET_HEADER_ERROR;
-				}
-				curl_slist_free_all(headers);
-				free(apiKeyHeader);
-			}
-			else
-			{
-				result = MSTTS_MALLOC_FAILED;
-			}
-			curl_easy_cleanup(curl);
-		}
-		else
-		{
-			result = MSTTS_HTTP_INIT_ERROR;
-		}
-		curl_global_cleanup();
+		result = MSTTS_MALLOC_FAILED;
 	}
 	else
 	{
-		result = MSTTS_HTTP_INIT_ERROR;
+		memset(apiKeyHeader, 0, strlen(ApiKeyHeaderName) + strlen(ApiKey) + 1);
+		strcat(apiKeyHeader, ApiKeyHeaderName);
+		strcat(apiKeyHeader, ApiKey);
+	}
+
+	if (result == MSTTS_OK)
+	{
+		//add header 
+		headers = curl_slist_append(headers, apiKeyHeader);
+		headers = curl_slist_append(headers, "Content-Length:0");
+		if (!headers)
+		{
+			free(apiKeyHeader);
+			result = MSTTS_GET_HEADER_ERROR;
+		}
+	}
+
+	if (result == MSTTS_OK) 
+	{
+		//CURL request
+		if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_INIT_ERROR;
+		}
+		else if (!(curl = curl_easy_init()))
+		{
+			result = MSTTS_HTTP_INIT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_WRITEDATA, KeyValue) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HandleTokenData) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_URL, URL) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_POST, 1) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+#ifdef CURL_VERBOSE
+		else if (curl_easy_setopt(curl, CURLOPT_VERBOSE, 1) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+#endif // CURL_VERBOSE
+		else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_perform(curl) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_PERFORM_BREAK;
+		}
+		else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) || httpStatusCode != 200)
+		{
+			result = MSTTS_HTTP_GETINFO_ERROR;
+		}
+		
+		free(apiKeyHeader);
+		curl_slist_free_all(headers);
+		curl_easy_cleanup(curl);
+		curl_global_cleanup();
 	}
 
 	return result;
@@ -381,13 +383,13 @@ MSTTS_RESULT GetToken(const unsigned char* ApiKey, unsigned char** KeyValue)
 */
 MSTTS_RESULT CheckToken(MSTTSHANDLE hSynthesizerHandle)
 {
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_RESULT result = MSTTS_OK;
+
 	if (hSynthesizerHandle == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
-
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
-	MSTTS_RESULT result = MSTTS_OK;
 
 	//if more than 9 minutes, need to reopen the access token
 	time_t time_now;
@@ -418,28 +420,27 @@ MSTTS_RESULT CheckToken(MSTTSHANDLE hSynthesizerHandle)
 */
 MSTTS_RESULT GetSSML(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enum MSTTSContentType eContentType, unsigned char** body)
 {
-	if (hSynthesizerHandle == NULL || pszContent == NULL || body == NULL)
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_RESULT result = MSTTS_OK;
+
+	if (SynthesizerHandle == NULL || pszContent == NULL || body == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
-
-	MSTTS_RESULT result = MSTTS_OK;
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	if (eContentType == MSTTSContentType_SSML)
 	{
 		size_t len = strlen(pszContent);
 
 		*body = malloc(len + 1);
-		if (*body)
+		if (!*body)
 		{
-			memset(*body, 0, len + 1);
-			strcpy(*body, pszContent);
-			result = MSTTS_OK;
+			result = MSTTS_MALLOC_FAILED;
 		}
 		else
 		{
-			result = MSTTS_MALLOC_FAILED;
+			memset(*body, 0, len + 1);
+			strcpy(*body, pszContent);
 		}
 	}
 	else
@@ -452,7 +453,11 @@ MSTTS_RESULT GetSSML(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enu
 			strlen(pszContent);
 
 		*body = malloc(len + 1);
-		if (*body)
+		if (!*body)
+		{
+			result = MSTTS_MALLOC_FAILED;
+		}
+		else
 		{
 			memset(*body, 0, len + 1);
 			snprintf(*body, len + 1, SSMLFormat,
@@ -460,15 +465,76 @@ MSTTS_RESULT GetSSML(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enu
 				SynthesizerHandle->VoiceInfo->lang,
 				SynthesizerHandle->VoiceInfo->voiceName,
 				pszContent);
-			result = MSTTS_OK;
-		}
-		else
-		{
-			result = MSTTS_MALLOC_FAILED;
 		}
 	}
 
 	return MSTTS_OK;
+}
+
+MSTTSVoiceInfo* InitMSTTSVoiceHandle()
+{
+	const unsigned char* cDefaultVoiceName = "Microsoft Server Speech Text to Speech Voice (zh-CN, HuihuiRUS)";
+	const unsigned char* cDefaultLang = "zh-CN";
+	MSTTSVoiceInfo* MSTTSVoiceHandle = NULL;
+	unsigned char* lang = NULL;
+	unsigned char* voiceName = NULL;
+	MSTTS_RESULT result = MSTTS_OK;
+
+	MSTTSVoiceHandle = (MSTTSVoiceInfo*)malloc(sizeof(MSTTSVoiceInfo));
+	if(!MSTTSVoiceHandle)
+	{
+		result = MSTTS_MALLOC_FAILED;
+	}
+
+	if(result == MSTTS_OK)
+	{
+		lang = malloc(strlen(cDefaultLang) + 1);
+		if (!lang) 
+		{
+			free(MSTTSVoiceHandle);
+			result = MSTTS_MALLOC_FAILED;
+		}
+	}
+	
+	if (result == MSTTS_OK)
+	{
+		voiceName = malloc(strlen(cDefaultVoiceName) + 1);
+		if (!voiceName)
+		{
+			free(MSTTSVoiceHandle);
+			free(lang);
+			result = MSTTS_MALLOC_FAILED;
+		}
+	}
+
+	if (result == MSTTS_OK)
+	{
+		memset(lang, 0, strlen(cDefaultLang) + 1);
+		strcpy(lang, cDefaultLang);
+		MSTTSVoiceHandle->lang = lang;
+
+		memset(voiceName, 0, strlen(cDefaultVoiceName) + 1);
+		strcpy(voiceName, cDefaultVoiceName);
+		MSTTSVoiceHandle->voiceName = voiceName;
+	}
+
+	return MSTTSVoiceHandle;
+}
+
+void DestroyMSTTSVoiceHandle(MSTTSVoiceInfo* MSTTSVoiceHandle)
+{
+	if (MSTTSVoiceHandle)
+	{
+		if (MSTTSVoiceHandle->voiceName)
+		{
+			free(MSTTSVoiceHandle->voiceName);
+		}
+		if (MSTTSVoiceHandle->lang)
+		{
+			free(MSTTSVoiceHandle->lang);
+		}
+		free(MSTTSVoiceHandle);
+	}
 }
 
 /*
@@ -481,117 +547,96 @@ MSTTS_RESULT GetSSML(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enu
 */
 MSTTS_RESULT MSTTS_CreateSpeechSynthesizerHandler(MSTTSHANDLE* phSynthesizerHandle, const unsigned char* MSTTSApiKey)
 {
-	const unsigned char* cDefaultVoiceName = "Microsoft Server Speech Text to Speech Voice (zh-CN, HuihuiRUS)";
-	const unsigned char* cDefaultLang = "zh-CN";
+	unsigned char* token = NULL;
+	MSTTSVoiceInfo* MSTTSVoiceHandle = NULL;
+	MSTTSWAVEFORMATEX* waveFormat = NULL;
+	MSTTS_HANDLE* MSTTShandle = NULL;
+	unsigned char* ApiKey = NULL;
+	MSTTS_RESULT result = MSTTS_OK;
 
 	if (MSTTSApiKey == NULL || phSynthesizerHandle == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
 
-	MSTTS_RESULT result = MSTTS_OK;
-
-	//init MSTTSVOICE_HANDLE
-	MSTTSVoiceInfo* MSTTSVoiceHandle = (MSTTSVoiceInfo*)malloc(sizeof(MSTTSVoiceInfo));
-	if (MSTTSVoiceHandle)
-	{
-		//set default lang
-		unsigned char* lang = malloc(strlen(cDefaultLang) + 1);
-		if (lang)
-		{
-			memset(lang, 0, strlen(cDefaultLang) + 1);
-			strcpy(lang, cDefaultLang);
-			MSTTSVoiceHandle->lang = lang;
-
-			//set default voiceName
-			unsigned char* voiceName = malloc(strlen(cDefaultVoiceName) + 1);
-			if (voiceName)
-			{
-				memset(voiceName, 0, strlen(cDefaultVoiceName) + 1);
-				strcpy(voiceName, cDefaultVoiceName);
-				MSTTSVoiceHandle->voiceName = voiceName;
-
-				MSTTSWAVEFORMATEX* waveFormat = (MSTTSWAVEFORMATEX*)malloc(sizeof(MSTTSWAVEFORMATEX));
-				if (waveFormat)
-				{
-					waveFormat->wFormatTag = WAVE_FORMAT_PCM;
-					waveFormat->nChannels = AUDIO_CHANNEL;
-					waveFormat->nSamplesPerSec = AUDIO_SAMPLE_RATE;
-					waveFormat->wBitsPerSample = AUDIO_BITS;
-					waveFormat->nAvgBytesPerSec = AUDIO_BYTE_RATE;
-					waveFormat->nBlockAlign = AUDIO_BLOCK_ALIGN;
-					waveFormat->cbSize = 0;
-
-					//init MSTTS_HANDLE
-					MSTTS_HANDLE* MSTTShandle = (MSTTS_HANDLE*)malloc(sizeof(MSTTS_HANDLE));
-					if (MSTTShandle)
-					{
-
-						//init ApiKey
-						unsigned char* ApiKey = malloc(strlen(MSTTSApiKey) + 1);
-						if (ApiKey)
-						{
-							memset(ApiKey, 0, strlen(MSTTSApiKey) + 1);
-							strcpy(ApiKey, MSTTSApiKey);
-
-							//init Token
-							unsigned char* token;
-
-							//Get token
-							if (GetToken(ApiKey, &token) == MSTTS_OK)
-							{
-								MSTTShandle->ApiKey = ApiKey;
-								MSTTShandle->Token = token;
-								time(&MSTTShandle->timeStamp);
-								MSTTShandle->Speakstatus = MSTTSAudioSYS_STOP;
-								MSTTShandle->VoiceInfo = MSTTSVoiceHandle;
-								MSTTShandle->outputCallback = NULL;
-								MSTTShandle->waveFormat = waveFormat;
-								MSTTShandle->hDecoder = NULL;
-								*phSynthesizerHandle = MSTTShandle;
-								return MSTTS_OK;
-							}
-							else
-							{
-								result = MSTTS_GET_TOKEN_FAILED;
-							}
-
-							free(ApiKey);
-						}
-						else
-						{
-							result = MSTTS_MALLOC_FAILED;
-						}
-						free(MSTTShandle);
-					}
-					else
-					{
-						result = MSTTS_MALLOC_FAILED;
-					}
-					free(waveFormat);
-				}
-				else
-				{
-					result = MSTTS_MALLOC_FAILED;
-				}
-				free(voiceName);
-			}
-			else
-			{
-				result = MSTTS_MALLOC_FAILED;
-			}
-			free(lang);
-		}
-		else
-		{
-			result = MSTTS_MALLOC_FAILED;
-		}
-		free(MSTTSVoiceHandle);
-	}
-	else
+	MSTTSVoiceHandle = InitMSTTSVoiceHandle();
+	if (!MSTTSVoiceHandle)
 	{
 		result = MSTTS_MALLOC_FAILED;
 	}
+
+	if (result == MSTTS_OK)
+	{
+		waveFormat = (MSTTSWAVEFORMATEX*)malloc(sizeof(MSTTSWAVEFORMATEX));
+		if (!waveFormat)
+		{
+			DestroyMSTTSVoiceHandle(MSTTSVoiceHandle);
+			result = MSTTS_MALLOC_FAILED;
+		}
+		else
+		{
+			waveFormat->wFormatTag = WAVE_FORMAT_PCM;
+			waveFormat->nChannels = AUDIO_CHANNEL;
+			waveFormat->nSamplesPerSec = AUDIO_SAMPLE_RATE;
+			waveFormat->wBitsPerSample = AUDIO_BITS;
+			waveFormat->nAvgBytesPerSec = AUDIO_BYTE_RATE;
+			waveFormat->nBlockAlign = AUDIO_BLOCK_ALIGN;
+			waveFormat->cbSize = 0;
+		}
+	}
+	
+	if (result == MSTTS_OK) 
+	{
+		if (GetToken(MSTTSApiKey, &token) != MSTTS_OK)
+		{
+			DestroyMSTTSVoiceHandle(MSTTSVoiceHandle);
+			free(waveFormat);
+			result = MSTTS_GET_TOKEN_FAILED;
+		}
+	}
+	
+	if (result == MSTTS_OK) 
+	{
+		ApiKey = malloc(strlen(MSTTSApiKey) + 1);
+		if (!ApiKey)
+		{
+			DestroyMSTTSVoiceHandle(MSTTSVoiceHandle);
+			free(waveFormat);
+			free(token);
+			result = MSTTS_MALLOC_FAILED;
+		}
+		else 
+		{
+			memset(ApiKey, 0, strlen(MSTTSApiKey) + 1);
+			strcpy(ApiKey, MSTTSApiKey);
+		}
+	}
+
+	if (result == MSTTS_OK) 
+	{
+		MSTTShandle = (MSTTS_HANDLE*)malloc(sizeof(MSTTS_HANDLE));
+		if (!MSTTShandle)
+		{
+			DestroyMSTTSVoiceHandle(MSTTSVoiceHandle);
+			free(waveFormat);
+			free(token);
+			free(ApiKey);
+			result = MSTTS_MALLOC_FAILED;
+		}
+		else
+		{
+			MSTTShandle->ApiKey = ApiKey;
+			MSTTShandle->Token = token;
+			time(&MSTTShandle->timeStamp);
+			MSTTShandle->Speakstatus = MSTTSAudioSYS_STOP;
+			MSTTShandle->VoiceInfo = MSTTSVoiceHandle;
+			MSTTShandle->outputCallback = NULL;
+			MSTTShandle->waveFormat = waveFormat;
+			MSTTShandle->hDecoder = NULL;
+			*phSynthesizerHandle = MSTTShandle;
+		}
+	}
+	
 	return result;
 }
 
@@ -606,174 +651,186 @@ MSTTS_RESULT MSTTS_CreateSpeechSynthesizerHandler(MSTTSHANDLE* phSynthesizerHand
 */
 MSTTS_RESULT MSTTS_Speak(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enum MSTTSContentType eContentType)
 {
-	if (hSynthesizerHandle == NULL || pszContent == NULL)
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	const char* speechURL = "https://speech.platform.bing.com/synthesize";
+	const char* tokenHeaderName = "Authorization:Bearer ";
+	unsigned char* tokenHeader = NULL;
+	struct curl_slist *headers = NULL;
+	unsigned char* body = NULL;
+	HTTPRESPONSECONTENT_HANDLE *responsecontent = NULL;
+	CURL *curl = NULL;
+	long httpStatusCode = 0;
+	MSTTS_RESULT result = MSTTS_OK;
+
+	if (SynthesizerHandle == NULL || pszContent == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
-
-	const char* speechURL = "https://speech.platform.bing.com/synthesize";
-	const char* tokenHeaderName = "Authorization:Bearer ";
-
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
-	MSTTS_RESULT result = MSTTS_OK;
 
 	if (SynthesizerHandle->outputCallback == NULL || SynthesizerHandle->outputCallback->pfWriteBack == NULL)
 	{
 		return MSTTS_CALLBACK_HAVE_NOT_SET;
 	}
 
-	long httpStatusCode;
-	unsigned char* body;
+	//init silk
+	if (initdecoder(&SynthesizerHandle->hDecoder) != 0) {
+		result = MSTTS_SILK_INIT_ERROR;
+	}
 
-	if (curl_global_init(CURL_GLOBAL_DEFAULT) == CURLE_OK)
+	//check token
+	if (result == MSTTS_OK) 
 	{
-		CURL *curl = curl_easy_init();
-		if (curl)
+		if (CheckToken(hSynthesizerHandle) != MSTTS_OK)
 		{
-			result = CheckToken(hSynthesizerHandle);
-			if (result == MSTTS_OK)
-			{
-				unsigned char* tokenHeader = malloc(strlen(tokenHeaderName) + strlen(SynthesizerHandle->Token) + 1);
-				if (tokenHeader)
-				{
-					memset(tokenHeader, 0, strlen(tokenHeaderName) + strlen(SynthesizerHandle->Token) + 1);
-					strcat(tokenHeader, tokenHeaderName);
-					strcat(tokenHeader, SynthesizerHandle->Token);
-
-					struct curl_slist *headers = NULL;
-					headers = curl_slist_append(headers, "Content-type:application/ssml+xml");
-					headers = curl_slist_append(headers, "X-Microsoft-OutputFormat:raw-16khz-16bit-mono-truesilk");
-					headers = curl_slist_append(headers, "X-Search-AppId:07D3234E49CE426DAA29772419F436CA");
-					headers = curl_slist_append(headers, "X-Search-ClientID:1ECFAE91408841A480F00935DC390960");
-					headers = curl_slist_append(headers, "User-Agent:TTSForPython");
-					headers = curl_slist_append(headers, tokenHeader);
-					if (headers)
-					{
-						if (GetSSML(SynthesizerHandle, pszContent, eContentType, &body) == MSTTS_OK)
-						{
-							if (!initdecoder(&SynthesizerHandle->hDecoder))
-							{
-								HTTPRESPONSECONTENT_HANDLE *responsecontent = malloc(sizeof(HTTPRESPONSECONTENT_HANDLE));
-								if (responsecontent)
-								{
-
-									responsecontent->buffer = NULL;
-									responsecontent->bufferSize = 0;
-									responsecontent->offset = 0;
-									responsecontent->waveSamplesSize = &SynthesizerHandle->waveFormat->cbSize;
-									responsecontent->Speakstatus = &SynthesizerHandle->Speakstatus;
-									responsecontent->outputCallback = SynthesizerHandle->outputCallback;
-									responsecontent->hDecoder = SynthesizerHandle->hDecoder;
-
-									if (curl_easy_setopt(curl, CURLOPT_WRITEDATA, responsecontent) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HandleWaveSamples) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(body)) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_URL, speechURL) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_POST, 1) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-#ifdef CURL_VERBOSE
-									else if (curl_easy_setopt(curl, CURLOPT_VERBOSE, 1) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-#endif
-#ifdef NO_SSL_VERIFYPEER
-									else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-									else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_SETOPT_ERROR;
-									}
-#endif
-									else if (curl_easy_perform(curl) != CURLE_OK)
-									{
-										result = MSTTS_HTTP_PERFORM_ERROR;
-									}
-									else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) || httpStatusCode != 200)
-									{
-										result = MSTTS_HTTP_GETINFO_ERROR;
-									}
-
-
-									if (responsecontent->buffer)
-									{
-										free(responsecontent->buffer);
-									}
-									free(responsecontent);
-								}
-								else
-								{
-									result = MSTTS_MALLOC_FAILED;
-								}
-								audio_decoder_uninitialize(&SynthesizerHandle->hDecoder);
-							}
-							else
-							{
-								result = MSTTS_SILK_INIT_ERROR;
-							}
-							free(body);
-						}
-						else
-						{
-							result = MSTTS_GET_SSML_ERROR;
-						}
-						curl_slist_free_all(headers);
-					}
-					else
-					{
-						result = MSTTS_GET_HEADER_ERROR;
-					}
-
-					free(tokenHeader);
-				}
-				else
-				{
-					result = MSTTS_MALLOC_FAILED;
-				}
-			}
-			curl_easy_cleanup(curl);
+			result = MSTTS_GET_TOKEN_FAILED;
+		}
+	}
+	
+	//set token header
+	if (result == MSTTS_OK)
+	{
+		tokenHeader = malloc(strlen(tokenHeaderName) + strlen(SynthesizerHandle->Token) + 1);
+		if (!tokenHeader)
+		{
+			result = MSTTS_MALLOC_FAILED;
 		}
 		else
 		{
+			memset(tokenHeader, 0, strlen(tokenHeaderName) + strlen(SynthesizerHandle->Token) + 1);
+			strcat(tokenHeader, tokenHeaderName);
+			strcat(tokenHeader, SynthesizerHandle->Token);
+		}
+	}
+	
+	//set SSML
+	if (result == MSTTS_OK)
+	{
+		if (GetSSML(SynthesizerHandle, pszContent, eContentType, &body) != MSTTS_OK)
+		{
+			free(tokenHeader);
+			result = MSTTS_GET_SSML_ERROR;
+		}
+	}
+
+	//set response content handle
+	if (result == MSTTS_OK)
+	{
+		responsecontent = (HTTPRESPONSECONTENT_HANDLE*)malloc(sizeof(HTTPRESPONSECONTENT_HANDLE));
+		if (!responsecontent)
+		{
+			free(tokenHeader);
+			free(body);
+			result = MSTTS_GET_HEADER_ERROR;
+		}
+		else
+		{
+			responsecontent->buffer = NULL;
+			responsecontent->bufferSize = 0;
+			responsecontent->offset = 0;
+			responsecontent->waveSamplesSize = &SynthesizerHandle->waveFormat->cbSize;
+			responsecontent->Speakstatus = &SynthesizerHandle->Speakstatus;
+			responsecontent->outputCallback = SynthesizerHandle->outputCallback;
+			responsecontent->hDecoder = SynthesizerHandle->hDecoder;
+		}
+	}
+
+	//add header
+	if (result == MSTTS_OK) 
+	{
+		headers = curl_slist_append(headers, "Content-type:application/ssml+xml");
+		headers = curl_slist_append(headers, "X-Microsoft-OutputFormat:raw-16khz-16bit-mono-truesilk");
+		headers = curl_slist_append(headers, "X-Search-AppId:07D3234E49CE426DAA29772419F436CA");
+		headers = curl_slist_append(headers, "X-Search-ClientID:1ECFAE91408841A480F00935DC390960");
+		headers = curl_slist_append(headers, "User-Agent:TTSForPython");
+		headers = curl_slist_append(headers, tokenHeader);
+		if (!headers) 
+		{
+			free(tokenHeader);
+			free(body);
+			free(responsecontent);
+			result = MSTTS_GET_HEADER_ERROR;
+		}
+	}
+
+	if (result == MSTTS_OK) 
+	{
+		if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+		{
 			result = MSTTS_HTTP_INIT_ERROR;
 		}
+		else if (!(curl = curl_easy_init())) 
+		{
+			result = MSTTS_HTTP_INIT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_WRITEDATA, responsecontent) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, HandleWaveSamples) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(body)) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_URL, speechURL) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_POST, 1) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+#ifdef CURL_VERBOSE
+		else if (curl_easy_setopt(curl, CURLOPT_VERBOSE, 1) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+#endif
+		else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_SETOPT_ERROR;
+		}
+		else if (curl_easy_perform(curl) != CURLE_OK)
+		{
+			result = MSTTS_HTTP_PERFORM_BREAK;
+		}
+		else if ((curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatusCode) != CURLE_OK) || httpStatusCode != 200)
+		{
+			result = MSTTS_HTTP_GETINFO_ERROR;
+		}
+
+		if (responsecontent->buffer)
+		{
+			free(responsecontent->buffer);
+		}
+		free(responsecontent);
+		free(body);
+		free(tokenHeader);
+		curl_slist_free_all(headers);
+		curl_easy_cleanup(curl);
 		curl_global_cleanup();
 	}
-	else
-	{
-		result = MSTTS_HTTP_INIT_ERROR;
-	}
+	audio_decoder_uninitialize(&SynthesizerHandle->hDecoder);
 
 	return result;
-
 }
 
 /*
@@ -785,12 +842,12 @@ MSTTS_RESULT MSTTS_Speak(MSTTSHANDLE hSynthesizerHandle, const char* pszContent,
 */
 MSTTS_RESULT MSTTS_Stop(MSTTSHANDLE hSynthesizerHandle)
 {
-	if (hSynthesizerHandle == NULL)
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+
+	if (SynthesizerHandle == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
-
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	SynthesizerHandle->Speakstatus = MSTTSAudioSYS_STOP;
 
@@ -809,14 +866,15 @@ MSTTS_RESULT MSTTS_Stop(MSTTSHANDLE hSynthesizerHandle)
 */
 MSTTS_RESULT MSTTS_SetVoice(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo* pVoiceInfo)
 {
-	if (hSynthesizerHandle == NULL || pVoiceInfo->voiceName == NULL || pVoiceInfo->lang == NULL)
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	unsigned char* newVoiceName = NULL;
+	unsigned char* newLang = NULL;
+	MSTTS_RESULT result = MSTTS_OK;
+
+	if (SynthesizerHandle == NULL || pVoiceInfo->voiceName == NULL || pVoiceInfo->lang == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
-
-	MSTTS_RESULT result = MSTTS_OK;
-
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	unsigned char* voiceName = SynthesizerHandle->VoiceInfo->voiceName;
 	unsigned char* lang = SynthesizerHandle->VoiceInfo->lang;
@@ -824,35 +882,28 @@ MSTTS_RESULT MSTTS_SetVoice(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo
 	size_t voiceNameLen = strlen(pVoiceInfo->voiceName);
 	size_t langLen = strlen(pVoiceInfo->lang);
 
-	unsigned char* newVoiceName = malloc(voiceNameLen + 1);
-	if (newVoiceName)
+	if (!(newVoiceName = malloc(voiceNameLen + 1)))
+	{
+		result = MSTTS_MALLOC_FAILED;
+	}
+	else if (!(newLang = malloc(langLen + 1)))
+	{
+		free(newVoiceName);
+		result = MSTTS_MALLOC_FAILED;
+	}
+	else 
 	{
 		memset(newVoiceName, 0, voiceNameLen + 1);
 		strcpy(newVoiceName, pVoiceInfo->voiceName);
 
-		unsigned char* newLang = malloc(langLen + 1);
-		if (newLang)
-		{
-			memset(newLang, 0, langLen + 1);
-			strcpy(newLang, pVoiceInfo->lang);
+		memset(newLang, 0, langLen + 1);
+		strcpy(newLang, pVoiceInfo->lang);
 
-			SynthesizerHandle->VoiceInfo->voiceName = newVoiceName;
-			SynthesizerHandle->VoiceInfo->lang = newLang;
+		SynthesizerHandle->VoiceInfo->voiceName = newVoiceName;
+		SynthesizerHandle->VoiceInfo->lang = newLang;
 
-			free(voiceName);
-			free(lang);
-
-			return MSTTS_OK;
-		}
-		else
-		{
-			result = MSTTS_MALLOC_FAILED;
-		}
-		free(newVoiceName);
-	}
-	else
-	{
-		result = MSTTS_MALLOC_FAILED;
+		free(voiceName);
+		free(lang);
 	}
 
 	return result;
@@ -873,34 +924,32 @@ MSTTS_RESULT MSTTS_SetVoice(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo
 */
 MSTTS_RESULT MSTTS_SetOutput(MSTTSHANDLE hSynthesizerHandle, const MSTTSWAVEFORMATEX* pWaveFormat, LPMSTTS_RECEIVE_WAVESAMPLES_ROUTINE pfWriteBack, void* pCallBackStat)
 {
-	if (hSynthesizerHandle == NULL || pfWriteBack == NULL)
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_OUTPUT* outputCallback = NULL;
+	MSTTS_RESULT result = MSTTS_OK;
+
+	if (SynthesizerHandle == NULL || pfWriteBack == NULL)
 	{
 		return MSTTS_INVALID_ARG;
 	}
-
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	if (SynthesizerHandle->outputCallback)
 	{
 		SynthesizerHandle->outputCallback->pCallBackStat = pCallBackStat;
 		SynthesizerHandle->outputCallback->pfWriteBack = pfWriteBack;
-		return MSTTS_OK;
+	}
+	else if (outputCallback = (MSTTS_OUTPUT*)malloc(sizeof(MSTTS_OUTPUT)))
+	{
+		outputCallback->pCallBackStat = pCallBackStat;
+		outputCallback->pfWriteBack = pfWriteBack;
+		SynthesizerHandle->outputCallback = outputCallback;
 	}
 	else
 	{
-		MSTTS_OUTPUT* outputCallback = (MSTTS_OUTPUT*)malloc(sizeof(MSTTS_OUTPUT));
-		if (outputCallback)
-		{
-			outputCallback->pCallBackStat = pCallBackStat;
-			outputCallback->pfWriteBack = pfWriteBack;
-			SynthesizerHandle->outputCallback = outputCallback;
-			return MSTTS_OK;
-		}
-		else
-		{
-			return MSTTS_MALLOC_FAILED;
-		}
+		result = MSTTS_MALLOC_FAILED;
 	}
+
+	return result;
 }
 
 /*
@@ -913,10 +962,9 @@ MSTTS_RESULT MSTTS_SetOutput(MSTTSHANDLE hSynthesizerHandle, const MSTTSWAVEFORM
 */
 const MSTTSWAVEFORMATEX* MSTTS_GetOutputFormat(MSTTSHANDLE hSynthesizerHandle)
 {
-
 	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
-	if (hSynthesizerHandle == NULL)
+	if (SynthesizerHandle == NULL)
 	{
 		return NULL;
 	}
@@ -931,55 +979,32 @@ const MSTTSWAVEFORMATEX* MSTTS_GetOutputFormat(MSTTSHANDLE hSynthesizerHandle)
 */
 void MSTTS_CloseSynthesizer(MSTTSHANDLE hSynthesizerHandle)
 {
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
-	if (hSynthesizerHandle)
+	if (SynthesizerHandle)
 	{
-		MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+		MSTTS_Stop(SynthesizerHandle);
 
-		if (MSTTS_Stop(SynthesizerHandle) == MSTTS_OK)
+		DestroyMSTTSVoiceHandle((MSTTSVoiceInfo *)SynthesizerHandle->VoiceInfo);
+
+		if (SynthesizerHandle->outputCallback)
 		{
-			if (SynthesizerHandle->VoiceInfo)
-			{
-				MSTTSVoiceInfo* MSTTSvoicehandle = (MSTTSVoiceInfo *)SynthesizerHandle->VoiceInfo;
-
-				if (MSTTSvoicehandle->voiceName)
-				{
-					free(MSTTSvoicehandle->voiceName);
-				}
-				if (MSTTSvoicehandle->lang)
-				{
-					free(MSTTSvoicehandle->lang);
-				}
-				free(MSTTSvoicehandle);
-			}
-
-			if (SynthesizerHandle->outputCallback)
-			{
-				free(SynthesizerHandle->outputCallback);
-			}
-			if (SynthesizerHandle->waveFormat)
-			{
-				free(SynthesizerHandle->waveFormat);
-			}
-			if (SynthesizerHandle->ApiKey)
-			{
-				free(SynthesizerHandle->ApiKey);
-			}
-			if (SynthesizerHandle->Token)
-			{
-				free(SynthesizerHandle->Token);
-			}
-			free(SynthesizerHandle);
+			free(SynthesizerHandle->outputCallback);
 		}
-		else
+		if (SynthesizerHandle->waveFormat)
 		{
-			result = MSTTS_CAN_NOT_STOP;
+			free(SynthesizerHandle->waveFormat);
 		}
+		if (SynthesizerHandle->ApiKey)
+		{
+			free(SynthesizerHandle->ApiKey);
+		}
+		if (SynthesizerHandle->Token)
+		{
+			free(SynthesizerHandle->Token);
+		}
+		free(SynthesizerHandle);
 	}
-	else
-	{
-		result = MSTTS_INVALID_ARG;
-	}
+	
 	return;
 }
