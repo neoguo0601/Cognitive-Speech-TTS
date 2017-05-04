@@ -61,17 +61,17 @@ typedef struct HTTPRESPONSECONTENTHANDLE_TAG
 //Silk decode source
 //
 static int silk_decode_frame(
-	void* hDecoder, 
+	void*      hDecoder, 
 	const SKP_uint8* inData, 
-	SKP_int nBytesIn, 
+	SKP_int    nBytesIn, 
 	SKP_int16* outData, 
-	size_t* nBytesOut)
+	size_t*    nBytesOut)
 {
-	SKP_int16 len;
-	int       tot_len = 0;
-	SKP_int   ret;
+	SKP_int16  len;
+	int        tot_len = 0;
+	SKP_int    ret;
 	SKP_SILK_SDK_DecControlStruct DecControl;
-	SKP_int   decodedBytes;
+	SKP_int    decodedBytes;
 
 	DecControl.API_sampleRate = AUDIO_SAMPLE_RATE;
 
@@ -174,7 +174,7 @@ static size_t HandleTokenData(void *data, size_t size, size_t nmemb, unsigned ch
 static size_t HandleWaveSamples(void *ptr, size_t size, size_t nmemb, void *responseContent)
 {
 	HTTPRESPONSECONTENT_HANDLE *response = (HTTPRESPONSECONTENT_HANDLE *)responseContent;
-	size_t		decodedBytes = 0;
+	size_t      decodedBytes = 0;
 	size_t      nBytes;
 
 	if ((response != NULL) &&
@@ -279,11 +279,11 @@ MSTTS_RESULT GetToken(const unsigned char* ApiKey, unsigned char** KeyValue)
 	const char* URL = "https://api.cognitive.microsoft.com/sts/v1.0/issueToken";
 	const char* ApiKeyHeaderName = "Ocp-Apim-Subscription-Key:";
 	
-	unsigned char* apiKeyHeader = NULL;
-	struct curl_slist *headers = NULL;
-	CURL *curl = NULL;
-	long httpStatusCode = 0;
-	MSTTS_RESULT result = MSTTS_OK;
+	unsigned char*     apiKeyHeader = NULL;
+	struct curl_slist* headers = NULL;
+	CURL*              curl = NULL;
+	long               httpStatusCode = 0;
+	MSTTS_RESULT       result = MSTTS_OK;
 
 	if (ApiKey == NULL || KeyValue == NULL)
 	{
@@ -395,8 +395,8 @@ MSTTS_RESULT GetToken(const unsigned char* ApiKey, unsigned char** KeyValue)
 */
 MSTTS_RESULT CheckToken(MSTTSHANDLE hSynthesizerHandle)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTS_HANDLE* SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_RESULT  result = MSTTS_OK;
 
 	if (hSynthesizerHandle == NULL)
 	{
@@ -436,9 +436,9 @@ MSTTS_RESULT GetSSML(
 	enum MSTTSContentType eContentType, 
 	unsigned char** body)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_HANDLE*        SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 	const unsigned char* SSMLFormat = "<speak version='1.0' xml:lang='%s'><voice xml:lang='%s' name='%s'>%s</voice></speak>";
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTS_RESULT         result = MSTTS_OK;
 
 	if (SynthesizerHandle == NULL || pszContent == NULL || body == NULL)
 	{
@@ -487,14 +487,19 @@ MSTTS_RESULT GetSSML(
 	return MSTTS_OK;
 }
 
+/*
+* Init TTS voice handler
+* Return value:
+*  MSTTSVoiceInfo*
+*/
 MSTTSVoiceInfo* InitMSTTSVoiceHandle()
 {
 	const unsigned char* cDefaultVoiceName = "Microsoft Server Speech Text to Speech Voice (zh-CN, HuihuiRUS)";
 	const unsigned char* cDefaultLang = "zh-CN";
-	MSTTSVoiceInfo* MSTTSVoiceHandle = NULL;
-	unsigned char* lang = NULL;
-	unsigned char* voiceName = NULL;
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTSVoiceInfo*      MSTTSVoiceHandle = NULL;
+	unsigned char*       lang = NULL;
+	unsigned char*       voiceName = NULL;
+	MSTTS_RESULT         result = MSTTS_OK;
 
 	MSTTSVoiceHandle = (MSTTSVoiceInfo*)malloc(sizeof(MSTTSVoiceInfo));
 	if(!MSTTSVoiceHandle)
@@ -537,6 +542,11 @@ MSTTSVoiceInfo* InitMSTTSVoiceHandle()
 	return MSTTSVoiceHandle;
 }
 
+/*
+* Destroy MSTTS Voice Handle
+* Parameters:
+*   MSTTSVoiceInfo: The handle of the TTS voice instance.
+*/
 void DestroyMSTTSVoiceHandle(MSTTSVoiceInfo* MSTTSVoiceHandle)
 {
 	if (MSTTSVoiceHandle)
@@ -563,12 +573,12 @@ void DestroyMSTTSVoiceHandle(MSTTSVoiceInfo* MSTTSVoiceHandle)
 */
 MSTTS_RESULT MSTTS_CreateSpeechSynthesizerHandler(MSTTSHANDLE* phSynthesizerHandle, const unsigned char* MSTTSApiKey)
 {
-	unsigned char* token = NULL;
-	MSTTSVoiceInfo* MSTTSVoiceHandle = NULL;
-	MSTTSWAVEFORMATEX* waveFormat = NULL;
-	MSTTS_HANDLE* MSTTShandle = NULL;
-	unsigned char* ApiKey = NULL;
-	MSTTS_RESULT result = MSTTS_OK;
+	unsigned char*      token = NULL;
+	MSTTSVoiceInfo*     MSTTSVoiceHandle = NULL;
+	MSTTSWAVEFORMATEX*  waveFormat = NULL;
+	MSTTS_HANDLE*       MSTTShandle = NULL;
+	unsigned char*      ApiKey = NULL;
+	MSTTS_RESULT        result = MSTTS_OK;
 
 	if (MSTTSApiKey == NULL || phSynthesizerHandle == NULL)
 	{
@@ -667,16 +677,16 @@ MSTTS_RESULT MSTTS_CreateSpeechSynthesizerHandler(MSTTSHANDLE* phSynthesizerHand
 */
 MSTTS_RESULT MSTTS_Speak(MSTTSHANDLE hSynthesizerHandle, const char* pszContent, enum MSTTSContentType eContentType)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
-	const char* speechURL = "https://speech.platform.bing.com/synthesize";
-	const char* tokenHeaderName = "Authorization:Bearer ";
-	unsigned char* tokenHeader = NULL;
-	struct curl_slist *headers = NULL;
-	unsigned char* body = NULL;
-	HTTPRESPONSECONTENT_HANDLE *responsecontent = NULL;
-	CURL *curl = NULL;
-	long httpStatusCode = 0;
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTS_HANDLE*       SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	const char*         speechURL = "https://speech.platform.bing.com/synthesize";
+	const char*         tokenHeaderName = "Authorization:Bearer ";
+	unsigned char*      tokenHeader = NULL;
+	struct curl_slist*  headers = NULL;
+	unsigned char*      body = NULL;
+	HTTPRESPONSECONTENT_HANDLE* responsecontent = NULL;
+	CURL*               curl = NULL;
+	long                httpStatusCode = 0;
+	MSTTS_RESULT        result = MSTTS_OK;
 
 	if (SynthesizerHandle == NULL || pszContent == NULL)
 	{
@@ -859,7 +869,7 @@ MSTTS_RESULT MSTTS_Speak(MSTTSHANDLE hSynthesizerHandle, const char* pszContent,
 */
 MSTTS_RESULT MSTTS_Stop(MSTTSHANDLE hSynthesizerHandle)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_HANDLE* SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	if (SynthesizerHandle == NULL)
 	{
@@ -883,10 +893,10 @@ MSTTS_RESULT MSTTS_Stop(MSTTSHANDLE hSynthesizerHandle)
 */
 MSTTS_RESULT MSTTS_SetVoice(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo* pVoiceInfo)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
-	unsigned char* newVoiceName = NULL;
-	unsigned char* newLang = NULL;
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTS_HANDLE*   SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	unsigned char*  newVoiceName = NULL;
+	unsigned char*  newLang = NULL;
+	MSTTS_RESULT    result = MSTTS_OK;
 
 	if (SynthesizerHandle == NULL || pVoiceInfo->voiceName == NULL || pVoiceInfo->lang == NULL)
 	{
@@ -940,14 +950,14 @@ MSTTS_RESULT MSTTS_SetVoice(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo
 *  MSTTS_RESULT
 */
 MSTTS_RESULT MSTTS_SetOutput(
-	MSTTSHANDLE hSynthesizerHandle, 
-	const MSTTSWAVEFORMATEX* pWaveFormat, 
+	MSTTSHANDLE  hSynthesizerHandle, 
+	const MSTTSWAVEFORMATEX*            pWaveFormat, 
 	LPMSTTS_RECEIVE_WAVESAMPLES_ROUTINE pfWriteBack, 
-	void* pCallBackStat)
+	void*        pCallBackStat)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
-	MSTTS_OUTPUT* outputCallback = NULL;
-	MSTTS_RESULT result = MSTTS_OK;
+	MSTTS_HANDLE*   SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_OUTPUT*   outputCallback = NULL;
+	MSTTS_RESULT    result = MSTTS_OK;
 
 	if (SynthesizerHandle == NULL || pfWriteBack == NULL)
 	{
@@ -983,7 +993,7 @@ MSTTS_RESULT MSTTS_SetOutput(
 */
 const MSTTSWAVEFORMATEX* MSTTS_GetOutputFormat(MSTTSHANDLE hSynthesizerHandle)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_HANDLE* SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	if (SynthesizerHandle == NULL)
 	{
@@ -1000,7 +1010,7 @@ const MSTTSWAVEFORMATEX* MSTTS_GetOutputFormat(MSTTSHANDLE hSynthesizerHandle)
 */
 void MSTTS_CloseSynthesizer(MSTTSHANDLE hSynthesizerHandle)
 {
-	MSTTS_HANDLE *SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
+	MSTTS_HANDLE* SynthesizerHandle = (MSTTS_HANDLE *)hSynthesizerHandle;
 
 	if (SynthesizerHandle)
 	{
