@@ -9,7 +9,7 @@ set(PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 include_directories("${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/3rdparty/curl/include" "${PROJECT_SOURCE_DIR}/3rdparty/silk/include")
 
-add_library(TTSClientSDK SHARED ${PROJECT_SOURCE_DIR}/source/TTSClientSDK.c)
+add_library(TTSClientSDK SHARED ${PROJECT_SOURCE_DIR}/source/TTSClientSDK.c ${PROJECT_SOURCE_DIR}/source/native-lib.c)
 
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin/Android/armeabi-v7a/${CMAKE_BUILD_TYPE}) 
 
