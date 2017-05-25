@@ -7,7 +7,7 @@ typedef struct androidCallBackStat
 {
     void* pCallBackStat;
     JNIEnv* env;
-    jobject  Mainactivity;
+    jobject  usingObject;
 }AndroidCallBackStat;
 
 char* jstringTostring(JNIEnv* env, jstring jstr)
@@ -33,16 +33,18 @@ int32_t ReceiveWave(void* pAndroidCallBackStat, const char* pWaveSamples, int32_
 {
     AndroidCallBackStat* androidStat = (AndroidCallBackStat*)pAndroidCallBackStat;
     JNIEnv* env = androidStat->env;
-    void* pCallBackStat = androidStat->pCallBackStat;
-    jobject obj = androidStat->Mainactivity;
+    jobject obj = androidStat->usingObject;
     jclass jc = (*env)->GetObjectClass(env, obj);
-    jmethodID methodID = (*env)->GetMethodID(env, jc, "ReceiveWave", "(J[BI)I");
+    jmethodID methodID = (*env)->GetMethodID(env, jc, "ReceiveWave", "(Ljava/lang/Object;[BI)I");
+    jobject callBackStat = androidStat->pCallBackStat;
     jbyteArray array = (*env)->NewByteArray(env, nBytes);
     (*env)->SetByteArrayRegion(env, array, 0, nBytes, pWaveSamples);
-    jint currReceive = (*env)->CallIntMethod(env, obj, methodID, (jlong)pCallBackStat, array, (jint)nBytes);
+    jint currReceive = (*env)->CallIntMethod(env, obj, methodID, callBackStat, array, (jint)nBytes);
     if(currReceive != 0)
     {
         (*env)->DeleteLocalRef(env, obj);
+        (*env)->DeleteLocalRef(env, callBackStat);
+        (*env)->DeleteLocalRef(env, array);
         free(pAndroidCallBackStat);
     }
     return (int32_t)currReceive;
@@ -64,18 +66,18 @@ int Java_com_microsoft_speech_ttsclientsdk_Synthesizer_Speak(JNIEnv* env, jclass
     return error;
 }
 
-int Java_com_microsoft_speech_ttsclientsdk_SynthesizerStop(JNIEnv* env, jclass clazz, jlong phSynthesizerHandle)
+int Java_com_microsoft_speech_ttsclientsdk_Synthesizer_Stop(JNIEnv* env, jclass clazz, jlong phSynthesizerHandle)
 {
     int error = MSTTS_Stop((MSTTSHANDLE)phSynthesizerHandle);
     return error;
 }
 
-int Java_com_microsoft_speech_ttsclientsdk_Synthesizer_SetOutput(JNIEnv* env, jclass clazz, jlong phSynthesizerHandle, jobject Mainactivity)
+int Java_com_microsoft_speech_ttsclientsdk_Synthesizer_SetOutput(JNIEnv* env, jclass clazz, jlong phSynthesizerHandle, jobject callBackStat, jobject usingObject)
 {
     AndroidCallBackStat* tmp = (AndroidCallBackStat*)malloc(sizeof(AndroidCallBackStat));
     tmp->env = env;
-    tmp->pCallBackStat = NULL;
-    tmp->Mainactivity = (*env)->NewGlobalRef(env, Mainactivity);
+    tmp->pCallBackStat = (*env)->NewGlobalRef(env, callBackStat);
+    tmp->usingObject = (*env)->NewGlobalRef(env, usingObject);
     int error = MSTTS_SetOutput((MSTTSHANDLE)phSynthesizerHandle, NULL, ReceiveWave, tmp);
     return error;
 }
@@ -92,14 +94,38 @@ int Java_com_microsoft_speech_ttsclientsdk_Synthesizer_SetVoice(JNIEnv* env, jcl
     return error;
 }
 
-//todo1 : MSTTSAPI MSTTSERROR MSTTS_GetInstalledVoices(MSTTSHANDLE hSynthesizerHandle, const MSTTSVoiceInfo** ppVoices, uint32_t* pnVoiceCnt);
+jobject Java_com_microsoft_speech_ttsclientsdk_Synthesizer_GetOutput(JNIEnv* env, jclass clazz, jlong phSynthesizerHandle)
+{
+    MSTTSWAVEFORMATEX* waveFormat = MSTTS_GetOutputFormat((MSTTSHANDLE)phSynthesizerHandle);
+
+    jclass jc = (*env)->FindClass(env, "com/microsoft/speech/ttsclientsdk/TTSWaveFormat");
+    jmethodID formatInit = (*env)->GetMethodID(env, jc, "<init>", "()V");
+    jobject obj = (*env)->NewObject(env, jc, formatInit);
+
+    jfieldID fid = (*env)->GetFieldID(env, jc, "wFormatTag", "S");
+    (*env)->SetShortField(env, obj, fid, (jshort)waveFormat->wFormatTag);
+
+    fid = (*env)->GetFieldID(env, jc, "nChannels", "S");
+    (*env)->SetShortField(env, obj, fid, (jshort)waveFormat->nChannels);
+
+    fid = (*env)->GetFieldID(env, jc, "nSamplesPerSec", "I");
+    (*env)->SetIntField(env, obj, fid, (jint)waveFormat->nSamplesPerSec);
+
+    fid = (*env)->GetFieldID(env, jc, "nAvgBytesPerSec", "I");
+    (*env)->SetIntField(env, obj, fid, (jint)waveFormat->nAvgBytesPerSec);
+
+    fid = (*env)->GetFieldID(env, jc, "nBlockAlign", "S");
+    (*env)->SetShortField(env, obj, fid, (jshort)waveFormat->nBlockAlign);
+
+    fid = (*env)->GetFieldID(env, jc, "wBitsPerSample", "S");
+    (*env)->SetShortField(env, obj, fid, (jshort)waveFormat->wBitsPerSample);
+
+    fid = (*env)->GetFieldID(env, jc, "cbSize", "I");
+    (*env)->SetIntField(env, obj, fid, (jint)waveFormat->cbSize);
+    return obj;
+}
 
 void Java_com_microsoft_speech_ttsclientsdk_Synthesizer_CloseHandler(JNIEnv* env, jclass clazz, jlong phSynthesizerHandle)
 {
     MSTTS_CloseSynthesizer((MSTTSHANDLE)phSynthesizerHandle);
 }
-
-
-
-
-
