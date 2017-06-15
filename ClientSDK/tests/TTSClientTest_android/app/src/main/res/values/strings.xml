@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">TTSClientTest_android</string>
-    <string name="api_key">e09567bd5ab24101a0c25b3da57d6357</string>
+    <!-- Please refer to http://oxford-portal.azurewebsites.net/doc/general/subscription-key-mgmt to get your subscription key -->
+    <!-- If you have one subscription key, you can add it here to use the service -->
+    <string name="api_key">Please enter you subscription key</string>
 </resources>
